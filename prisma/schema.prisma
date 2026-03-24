@@ -73,8 +73,9 @@ model Product {
   id          String   @id @default(cuid())
   businessId  String
   name        String
+  category    String?  // Optional product category
   description String?
-  sku         String   @unique
+  sku         String?  @unique
   price       Decimal  @db.Decimal(10, 2)
   cost        Decimal? @db.Decimal(10, 2)
   quantity    Int      @default(0)

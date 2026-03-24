@@ -1,6 +1,7 @@
 import bcryptjs from 'bcryptjs';
 import { userRepository } from '@/repositories/userRepository';
 import { SignupInput, LoginInput } from '@/lib/validations';
+import { AuthResponse } from '@/types/auth';
 
 export class AuthService {
   // in-memory fallback state
@@ -41,7 +42,7 @@ export class AuthService {
   /**
    * Register a new user
    */
-  async signup(input: SignupInput) {
+  async signup(input: SignupInput): Promise<AuthResponse> {
     // If we've already decided to run in memory, use that store
     if (this.useMemory) {
       const existing = this.memoryUsers.find(u => u.email === input.email);
@@ -112,7 +113,7 @@ export class AuthService {
   /**
    * Authenticate user with email and password
    */
-  async login(input: LoginInput) {
+  async login(input: LoginInput): Promise<AuthResponse> {
     // in-memory mode
     if (this.useMemory) {
       console.debug('memoryUsers contents:', this.memoryUsers);
