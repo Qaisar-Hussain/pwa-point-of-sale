@@ -208,7 +208,7 @@ export default function ProductsPage() {
                         <td className="px-4 py-3">
                           <span className="text-gray-700">{product.quantity}</span>
                         </td>
-                        <td className="px-4 py-3 space-x-2">
+                        <td className="px-4 py-3 flex gap-2">
                           <Button
                             type="button"
                             variant="secondary"
