@@ -1,5 +1,4 @@
 import prisma from '@/lib/prisma';
-import { Role } from '@prisma/client';
 
 export class UserRepository {
   async findByEmail(email: string) {
@@ -14,7 +13,7 @@ export class UserRepository {
     });
   }
 
-  async create(data: { name: string; email: string; password: string; role?: Role }) {
+  async create(data: { name: string; email: string; password: string; role?: string }) {
     return prisma.user.create({
       data: {
         name: data.name,
@@ -25,7 +24,7 @@ export class UserRepository {
     });
   }
 
-  async update(id: string, data: Partial<{ name: string; email: string; role: Role }>) {
+  async update(id: string, data: Partial<{ name: string; email: string; role: string }>) {
     return prisma.user.update({
       where: { id },
       data,

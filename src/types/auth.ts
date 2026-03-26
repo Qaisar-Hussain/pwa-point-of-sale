@@ -1,10 +1,8 @@
-import { Role } from '@prisma/client';
-
 export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: Role;
+  role: string;
 }
 
 export interface SignupInput {
@@ -20,7 +18,7 @@ export interface LoginInput {
 
 export interface AuthResponse {
   success: boolean;
-  message: string;
+  message?: string;
   user?: AuthUser;
   error?: string;
 }

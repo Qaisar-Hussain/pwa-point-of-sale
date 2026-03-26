@@ -1,5 +1,4 @@
 import { userRepository } from '@/repositories/userRepository';
-import { Role } from '@prisma/client';
 
 export class UserService {
   /**
@@ -38,7 +37,7 @@ export class UserService {
   /**
    * Update user profile
    */
-  async updateUser(id: string, data: { name?: string; email?: string; role?: Role }) {
+  async updateUser(id: string, data: { name?: string; email?: string; role?: string }) {
     // Check if email is being changed to existing email
     if (data.email) {
       const existingUser = await userRepository.findByEmail(data.email);

@@ -1,13 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { FormInput } from '@/components/FormInput';
 import { Button } from '@/components/Button';
 import { Alert } from '@/components/Alert';
 
 export function LoginForm() {
-  const router = useRouter();
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);

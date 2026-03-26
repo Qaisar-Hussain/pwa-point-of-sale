@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -15,7 +15,7 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      Role     @default(STAFF)
+  role      String   @default("STAFF")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -24,11 +24,6 @@ model User {
   ownedBusinesses Business[]
 
   @@map("users")
-}
-
-enum Role {
-  ADMIN
-  STAFF
 }
 
 model Business {
@@ -41,6 +36,7 @@ model Business {
   // Relations
   owner        User           @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   users        UserBusiness[]
+  sales        Sale[]
 
   @@map("businesses")
 }
@@ -49,7 +45,7 @@ model UserBusiness {
   id         String   @id @default(cuid())
   userId     String
   businessId String
-  role       UserBusinessRole @default(STAFF)
+  role       String   @default("STAFF")
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
@@ -62,12 +58,6 @@ model UserBusiness {
   @@map("user_businesses")
 }
 
-enum UserBusinessRole {
-  OWNER
-  MANAGER
-  STAFF
-}
-
 // Future models for POS functionality
 model Product {
   id          String   @id @default(cuid())
@@ -76,11 +66,12 @@ model Product {
   category    String?  // Optional product category
   description String?
   sku         String?  @unique
-  price       Decimal  @db.Decimal(10, 2)
-  cost        Decimal? @db.Decimal(10, 2)
+  price       Float
+  cost        Float?
   quantity    Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  saleItems   SaleItem[]
 
   @@map("products")
 }
@@ -88,11 +79,37 @@ model Product {
 model Transaction {
   id          String   @id @default(cuid())
   businessId  String
-  amount      Decimal  @db.Decimal(10, 2)
+  amount      Float
   paymentType String // CASH, CARD, CRYPTO, etc.
   status      String   @default("COMPLETED") // COMPLETED, PENDING, FAILED
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@map("transactions")
+}
+
+model Sale {
+  id          String   @id @default(cuid())
+  businessId  String
+  totalAmount Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  items       SaleItem[]
+  business    Business @relation(fields: [businessId], references: [id])
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String   @id @default(cuid())
+  saleId    String
+  productId String
+  quantity  Int
+  price     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  sale      Sale     @relation(fields: [saleId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+
+  @@map("sale_items")
 }

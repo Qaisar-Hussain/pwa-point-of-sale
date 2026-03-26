@@ -1,8 +1,7 @@
-import { NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { successResponse, unauthorizedResponse } from '@/lib/utils';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const users = await prisma.user.findMany({
       select: {

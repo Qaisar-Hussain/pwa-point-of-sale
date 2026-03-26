@@ -11,7 +11,7 @@ type Product = {
   id: string;
   name: string;
   category?: string;
-  sku?: string;
+  sku?: string | null;
   price: string;
   quantity: number;
   description?: string | null;
@@ -152,28 +152,33 @@ export default function ProductsPage() {
                               formData.set('id', product.id);
                               await handleActionResult(updateProduct(formData), 'Product updated.');
                             }}
-                            className="flex gap-4"
+                            className="grid grid-cols-1 md:grid-cols-5 gap-2"
                           >
                             <input
                               name="name"
                               defaultValue={product.name}
-                              className="flex-1 rounded border border-gray-300 px-3 py-2"
+                              className="rounded border border-gray-300 px-3 py-2 w-full"
                               placeholder="Product Name"
                               required
                             />
                             <input
+                              name="category"
+                              defaultValue={product.category || ''}
+                              className="rounded border border-gray-300 px-3 py-2 w-full"
+                              placeholder="Category"
+                            />
+                            <input
                               name="sku"
-                              defaultValue={product.sku}
-                              className="flex-1 rounded border border-gray-300 px-3 py-2"
+                              defaultValue={product.sku || ''}
+                              className="rounded border border-gray-300 px-3 py-2 w-full"
                               placeholder="Barcode"
-                              required
                             />
                             <input
                               name="price"
                               type="number"
                               step="0.01"
                               defaultValue={String(product.price)}
-                              className="flex-1 rounded border border-gray-300 px-3 py-2"
+                              className="rounded border border-gray-300 px-3 py-2 w-full"
                               placeholder="Price"
                               required
                             />
@@ -182,12 +187,14 @@ export default function ProductsPage() {
                               type="number"
                               min={0}
                               defaultValue={String(product.quantity)}
-                              className="flex-1 rounded border border-gray-300 px-3 py-2"
+                              className="rounded border border-gray-300 px-3 py-2 w-full"
                               placeholder="Stock"
                               required
                             />
-                            <Button type="submit" className="w-auto">Save</Button>
-                            <Button type="button" variant="secondary" className="w-auto" onClick={() => setEditingId(null)}>Cancel</Button>
+                            <div className="md:col-span-5 flex justify-end gap-2 mt-2">
+                              <Button type="submit" className="w-auto">Save</Button>
+                              <Button type="button" variant="secondary" className="w-auto" onClick={() => setEditingId(null)}>Cancel</Button>
+                            </div>
                           </form>
                         </td>
                       </tr>

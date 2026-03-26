@@ -1,19 +1,22 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
+import { verifyJwt } from '@/lib/jwt';
 import { authService } from '@/services/authService';
 import { successResponse, unauthorizedResponse, notFoundResponse } from '@/lib/utils';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get session
-    const session = await auth();
+    const token = request.cookies.get('token')?.value;
+    if (!token) {
+      return unauthorizedResponse('Not authenticated');
+    }
 
-    if (!session || !session.user?.id) {
+    const decoded = await verifyJwt(token);
+    if (!decoded || typeof decoded.id !== 'string') {
       return unauthorizedResponse('Not authenticated');
     }
 
     // Get user profile
-    const user = await authService.getUserById(session.user.id);
+    const user = await authService.getUserById(decoded.id);
 
     if (!user) {
       return notFoundResponse('User not found');

@@ -9,36 +9,54 @@ async function getCurrentBusinessId() {
 
   const token = cookies().get('token')?.value;
   if (!token) return null;
-  const decoded = await verifyJwt(token);
+
+  let decoded: any;
+  try {
+    decoded = await verifyJwt(token);
+  } catch (err) {
+    console.error('products.getCurrentBusinessId: verifyJwt failed', err);
+    return null;
+  }
+
   if (!decoded || typeof decoded.id !== 'string') return null;
 
   const userId = decoded.id;
 
-  // Try owner role first
-  const ownerBusiness = await prisma.business.findFirst({ where: { ownerId: userId } });
-  if (ownerBusiness) return ownerBusiness.id;
+  try {
+    // If the token refers to a user that doesn't exist in this DB, creating a business
+    // will fail with a foreign-key error. Treat it as unauthorized so the user re-auths.
+    const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!userExists) return null;
 
-  // Then try business memberships (for staff/managers)
-  const userBusiness = await prisma.userBusiness.findFirst({ where: { userId } });
-  if (userBusiness) return userBusiness.businessId;
+    // Try owner role first
+    const ownerBusiness = await prisma.business.findFirst({ where: { ownerId: userId } });
+    if (ownerBusiness) return ownerBusiness.id;
 
-  // If no business found, create a single implicit business for the user.
-  // This makes the SaaS behavior per-user equivalent and avoids 'Unauthorized' for non-joined owners.
-  const newBusiness = await prisma.business.create({
-    data: {
-      name: `Business of ${userId}`,
-      ownerId: userId,
-    },
-  });
-  await prisma.userBusiness.create({
-    data: {
-      userId,
-      businessId: newBusiness.id,
-      role: 'OWNER',
-    },
-  });
+    // Then try business memberships (for staff/managers)
+    const userBusiness = await prisma.userBusiness.findFirst({ where: { userId } });
+    if (userBusiness) return userBusiness.businessId;
 
-  return newBusiness.id;
+    // If no business found, create a single implicit business for the user.
+    // This makes the SaaS behavior per-user equivalent and avoids 'Unauthorized' for non-joined owners.
+    const newBusiness = await prisma.business.create({
+      data: {
+        name: `Business of ${userId}`,
+        ownerId: userId,
+      },
+    });
+    await prisma.userBusiness.create({
+      data: {
+        userId,
+        businessId: newBusiness.id,
+        role: 'OWNER',
+      },
+    });
+
+    return newBusiness.id;
+  } catch (err) {
+    console.error('products.getCurrentBusinessId: prisma failed', err);
+    throw err;
+  }
 }
 
 
@@ -48,19 +66,24 @@ export async function getProducts() {
   if (!businessId) return [];
 
   const { default: prisma } = await import('@/lib/prisma');
-  const products = await prisma.product.findMany({
-    where: { businessId },
-    orderBy: { createdAt: 'desc' },
-  });
+  try {
+    const products = await prisma.product.findMany({
+      where: { businessId },
+      orderBy: { createdAt: 'desc' },
+    });
 
-  return products.map(p => {
-    const anyP = p as any;
-    return {
-      ...p,
-      price: p.price.toString(),
-      category: anyP.category || (anyP.description ? String(anyP.description) : undefined),
-    };
-  });
+    return products.map(p => {
+      const anyP = p as any;
+      return {
+        ...p,
+        price: p.price.toString(),
+        category: anyP.category || (anyP.description ? String(anyP.description) : undefined),
+      };
+    });
+  } catch (err) {
+    console.error('products.getProducts: prisma failed', err);
+    throw err;
+  }
 }
 
 export async function createProduct(formData: FormData) {
@@ -106,7 +129,12 @@ export async function createProduct(formData: FormData) {
 
   if (productTableHasSku && sku) data.sku = sku;
 
-  await prisma.product.create({ data });
+  try {
+    await prisma.product.create({ data });
+  } catch (err) {
+    console.error('products.createProduct: prisma failed', err);
+    throw err;
+  }
   revalidatePath('/dashboard/products');
 }
 
@@ -152,7 +180,12 @@ export async function updateProduct(formData: FormData) {
 
   if (productTableHasSku) updateData.sku = sku || null;
 
-  await prisma.product.update({ where: { id }, data: updateData });
+  try {
+    await prisma.product.update({ where: { id }, data: updateData });
+  } catch (err) {
+    console.error('products.updateProduct: prisma failed', err);
+    throw err;
+  }
   revalidatePath('/dashboard/products');
 }
 
@@ -165,6 +198,11 @@ export async function deleteProduct(formData: FormData) {
   if (!id) throw new Error('Missing product id');
 
   const { default: prisma } = await import('@/lib/prisma');
-  await prisma.product.delete({ where: { id } });
+  try {
+    await prisma.product.delete({ where: { id } });
+  } catch (err) {
+    console.error('products.deleteProduct: prisma failed', err);
+    throw err;
+  }
   revalidatePath('/dashboard/products');
 }
