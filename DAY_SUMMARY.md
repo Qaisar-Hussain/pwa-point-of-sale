@@ -40,8 +40,7 @@ This file captures the state and key changes made during today's session so I ca
 
 ## Test Credentials
 
-- Email: `sarah@test.io`
-- Password: `SecureP@ss123`
+- 
 
 ## Next Time
 
