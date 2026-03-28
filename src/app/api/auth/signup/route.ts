@@ -3,6 +3,9 @@ import { signupSchema } from '@/lib/validations';
 import { authService } from '@/services/authService';
 import { createdResponse, errorResponse, conflictResponse } from '@/lib/utils';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -21,7 +24,7 @@ export async function POST(request: NextRequest) {
       if (result.error?.includes('already')) {
         return conflictResponse(result.error);
       }
-      return errorResponse(result.error || 'Signup failed', 400);
+      return errorResponse(result.error || 'Signup failed', 500);
     }
 
     // Remove sensitive data

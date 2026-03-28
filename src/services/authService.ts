@@ -36,10 +36,39 @@ export class AuthService {
    * Flag database problems and switch to in-memory mode
    */
   private markDbError(err: any) {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
     if (err?.message?.includes('Authentication failed')) {
       console.warn('DB connection failed, switching to in-memory store');
       this.useMemory = true;
     }
+  }
+
+  /**
+   * Normalize database errors so API routes can return actionable messages.
+   */
+  private getDatabaseErrorMessage(err: any): string {
+    const message = String(err?.message || '');
+
+    if (message.includes('the URL must start with the protocol `file:`')) {
+      return 'Database provider mismatch: deployment is using a SQLite Prisma client while this project expects PostgreSQL. Redeploy latest commit and clear Vercel build cache.';
+    }
+
+    if (message.includes('PrismaClientInitializationError')) {
+      return 'Database initialization failed. Verify DATABASE_URL and run production migrations.';
+    }
+
+    if (message.includes('Authentication failed')) {
+      return 'Database authentication failed. Check database credentials in DATABASE_URL.';
+    }
+
+    if (message.includes('Can\'t reach database server')) {
+      return 'Cannot reach database server. Check host, port, and network access.';
+    }
+
+    return 'Database operation failed. Verify deployment environment and Prisma migrations.';
   }
 
   /**
@@ -100,7 +129,7 @@ export class AuthService {
       if (this.useMemory) {
         return this.signup(input);
       }
-      return { success: false, error: 'Failed to create user' };
+      return { success: false, error: this.getDatabaseErrorMessage(error) };
     }
   }
 
@@ -130,7 +159,7 @@ export class AuthService {
       console.error('Login error:', error);
       this.markDbError(error);
       if (this.useMemory) return this.login(input);
-      return { success: false, error: 'Login failed' };
+      return { success: false, error: this.getDatabaseErrorMessage(error) };
     }
   }
 

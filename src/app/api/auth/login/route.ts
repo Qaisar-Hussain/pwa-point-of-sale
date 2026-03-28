@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
 
     const result = await authService.login(validated.data);
     if (!result.success) {
+      if (result.error && !result.error.includes('Invalid email or password')) {
+        return errorResponse(result.error, 500);
+      }
       return unauthorizedResponse(result.error || 'Invalid credentials');
     }
 
