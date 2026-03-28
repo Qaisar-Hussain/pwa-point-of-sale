@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server';
 import { verifyJwt } from '@/lib/jwt';
 import { unauthorizedResponse, successResponse } from '@/lib/utils';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get('token')?.value;

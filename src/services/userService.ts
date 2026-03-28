@@ -1,11 +1,13 @@
-import { userRepository } from '@/repositories/userRepository';
+import { UserRepository } from '@/repositories/userRepository';
 
 export class UserService {
+  private userRepository = new UserRepository();
+
   /**
    * Get user by ID
    */
   async getUserById(id: string) {
-    const user = await userRepository.findById(id);
+    const user = await this.userRepository.findById(id);
     
     if (!user) {
       return null;
@@ -24,7 +26,7 @@ export class UserService {
    * Get all users (admin only)
    */
   async getAllUsers() {
-    const users = await userRepository.findAll();
+    const users = await this.userRepository.findAll();
     return users.map(user => ({
       id: user.id,
       name: user.name,
@@ -40,7 +42,7 @@ export class UserService {
   async updateUser(id: string, data: { name?: string; email?: string; role?: string }) {
     // Check if email is being changed to existing email
     if (data.email) {
-      const existingUser = await userRepository.findByEmail(data.email);
+      const existingUser = await this.userRepository.findByEmail(data.email);
       if (existingUser && existingUser.id !== id) {
         return {
           success: false,
@@ -50,7 +52,7 @@ export class UserService {
     }
 
     try {
-      const user = await userRepository.update(id, data);
+      const user = await this.userRepository.update(id, data);
       return {
         success: true,
         user: {
@@ -74,7 +76,7 @@ export class UserService {
    */
   async deleteUser(id: string) {
     try {
-      await userRepository.delete(id);
+      await this.userRepository.delete(id);
       return {
         success: true,
         message: 'User deleted successfully',
@@ -92,7 +94,7 @@ export class UserService {
    * Check if email exists
    */
   async emailExists(email: string): Promise<boolean> {
-    const user = await userRepository.findByEmail(email);
+    const user = await this.userRepository.findByEmail(email);
     return !!user;
   }
 }

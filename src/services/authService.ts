@@ -1,10 +1,10 @@
+// /services/authService.ts
 import bcryptjs from 'bcryptjs';
-import { userRepository } from '@/repositories/userRepository';
+import { UserRepository } from '@/repositories/userRepository';
 import { SignupInput, LoginInput } from '@/lib/validations';
 import { AuthResponse } from '@/types/auth';
 
 export class AuthService {
-  // in-memory fallback state
   private memoryUsers: Array<{
     id: string;
     name: string;
@@ -13,6 +13,9 @@ export class AuthService {
     role: string;
   }> = [];
   private useMemory = false;
+
+  // ✅ Instantiate repository at runtime
+  private userRepository = new UserRepository();
 
   /**
    * Hash password using bcryptjs
@@ -43,7 +46,6 @@ export class AuthService {
    * Register a new user
    */
   async signup(input: SignupInput): Promise<AuthResponse> {
-    // If we've already decided to run in memory, use that store
     if (this.useMemory) {
       const existing = this.memoryUsers.find(u => u.email === input.email);
       if (existing) {
@@ -69,18 +71,14 @@ export class AuthService {
       };
     }
 
-    // Normal DB flow
     try {
-      const existingUser = await userRepository.findByEmail(input.email);
+      const existingUser = await this.userRepository.findByEmail(input.email);
       if (existingUser) {
-        return {
-          success: false,
-          error: 'Email already registered',
-        };
+        return { success: false, error: 'Email already registered' };
       }
 
       const hashedPassword = await this.hashPassword(input.password);
-      const user = await userRepository.create({
+      const user = await this.userRepository.create({
         name: input.name,
         email: input.email,
         password: hashedPassword,
@@ -100,103 +98,48 @@ export class AuthService {
       console.error('Signup error:', error);
       this.markDbError(error);
       if (this.useMemory) {
-        // try memory fallback after marking
         return this.signup(input);
       }
-      return {
-        success: false,
-        error: 'Failed to create user',
-      };
+      return { success: false, error: 'Failed to create user' };
     }
   }
 
   /**
-   * Authenticate user with email and password
+   * Authenticate user
    */
   async login(input: LoginInput): Promise<AuthResponse> {
-    // in-memory mode
     if (this.useMemory) {
-      console.debug('memoryUsers contents:', this.memoryUsers);
       const user = this.memoryUsers.find(u => u.email === input.email);
-      if (!user) {
-        console.debug('no user found in memory for', input.email);
-        return { success: false, error: 'Invalid email or password' };
-      }
-      const isPasswordValid = await this.comparePassword(input.password, user.password);
-      if (!isPasswordValid) {
-        console.debug('password mismatch for', input.email);
-        return { success: false, error: 'Invalid email or password' };
-      }
-      return {
-        success: true,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        },
-      };
+      if (!user) return { success: false, error: 'Invalid email or password' };
+
+      const valid = await this.comparePassword(input.password, user.password);
+      if (!valid) return { success: false, error: 'Invalid email or password' };
+
+      return { success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
     }
 
     try {
-      const user = await userRepository.findByEmail(input.email);
-      
-      if (!user) {
-        return {
-          success: false,
-          error: 'Invalid email or password',
-        };
-      }
+      const user = await this.userRepository.findByEmail(input.email);
+      if (!user) return { success: false, error: 'Invalid email or password' };
 
-      // Compare password
-      const isPasswordValid = await this.comparePassword(input.password, user.password);
-      
-      if (!isPasswordValid) {
-        return {
-          success: false,
-          error: 'Invalid email or password',
-        };
-      }
+      const valid = await this.comparePassword(input.password, user.password);
+      if (!valid) return { success: false, error: 'Invalid email or password' };
 
-      return {
-        success: true,
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        },
-      };
+      return { success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
     } catch (error) {
       console.error('Login error:', error);
       this.markDbError(error);
-      if (this.useMemory) {
-        return this.login(input);
-      }
-      return {
-        success: false,
-        error: 'Login failed',
-      };
+      if (this.useMemory) return this.login(input);
+      return { success: false, error: 'Login failed' };
     }
   }
 
-  /**
-   * Get user by ID
-   */
   async getUserById(id: string) {
-    const user = await userRepository.findById(id);
-    
-    if (!user) {
-      return null;
-    }
-
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    };
+    const user = await this.userRepository.findById(id);
+    if (!user) return null;
+    return { id: user.id, name: user.name, email: user.email, role: user.role };
   }
 }
 
+// ✅ Export instance safely at runtime
 export const authService = new AuthService();

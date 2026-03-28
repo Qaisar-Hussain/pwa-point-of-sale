@@ -199,7 +199,16 @@ export async function deleteProduct(formData: FormData) {
 
   const { default: prisma } = await import('@/lib/prisma');
   try {
-    await prisma.product.delete({ where: { id } });
+    const existing = await prisma.product.findFirst({ where: { id, businessId }, select: { id: true } });
+    if (!existing) {
+      throw new Error('Product not found');
+    }
+
+    // Remove dependent rows first so foreign key constraints do not block deletion.
+    await prisma.$transaction([
+      prisma.saleItem.deleteMany({ where: { productId: id } }),
+      prisma.product.delete({ where: { id } }),
+    ]);
   } catch (err) {
     console.error('products.deleteProduct: prisma failed', err);
     throw err;

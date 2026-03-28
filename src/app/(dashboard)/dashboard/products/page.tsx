@@ -54,8 +54,10 @@ export default function ProductsPage() {
       await loadProducts();
       setEditingId(null);
       setShowForm(false);
+      return true;
     } catch (error) {
       setMessage({ type: 'error', text: (error as Error).message || 'Action failed' });
+      return false;
     }
   };
 
@@ -63,8 +65,10 @@ export default function ProductsPage() {
     if (!deleteTarget) return;
     const formData = new FormData();
     formData.set('id', deleteTarget.id);
-    await handleActionResult(deleteProduct(formData), 'Product deleted.');
-    setDeleteTarget(null);
+    const deleted = await handleActionResult(deleteProduct(formData), 'Product deleted.');
+    if (deleted) {
+      setDeleteTarget(null);
+    }
   };
 
   return (
