@@ -95,13 +95,23 @@ If using external database (AWS RDS, Railway, etc.):
 After first deployment:
 
 ```bash
-# In Vercel CLI or via terminal
-vercel env ls
+# Pull production environment variables locally
+vercel env pull .env.production.local
 
-# If needed, manually run migrations:
-# Contact: Don't do this from local!
-# Instead: Create a migration API endpoint (optional)
+# Export them for the current shell
+set -a
+source .env.production.local
+set +a
+
+# Apply committed Prisma migrations to production
+npm run prisma:deploy
 ```
+
+Important:
+
+- Your Prisma schema in this repo uses PostgreSQL, so `DATABASE_URL` must be a PostgreSQL connection string.
+- If you see `the URL must start with the protocol file:`, the deployment is still using an older SQLite-based Prisma schema or an outdated environment setup.
+- Redeploy with build cache cleared after confirming the deployed commit contains `provider = "postgresql"` in `prisma/schema.prisma`.
 
 ## 🛠️ Alternative Deployment Options
 
