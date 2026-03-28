@@ -1,8 +1,15 @@
-import prisma from '@/lib/prisma';
-import { successResponse, unauthorizedResponse } from '@/lib/utils';
+import { successResponse, unauthorizedResponse, errorResponse } from '@/lib/utils';
+
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return errorResponse('Not found', 404);
+  }
+
   try {
+    const { default: prisma } = await import('@/lib/prisma');
     const users = await prisma.user.findMany({
       select: {
         id: true,
