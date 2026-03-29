@@ -50,25 +50,52 @@ export class AuthService {
    * Normalize database errors so API routes can return actionable messages.
    */
   private getDatabaseErrorMessage(err: any): string {
-    const message = String(err?.message || '');
+    const message = this.getErrorText(err);
 
-    if (message.includes('the URL must start with the protocol `file:`')) {
+    if (
+      message.includes('the url must start with the protocol `file:`') ||
+      message.includes('the url must start with the protocol file:')
+    ) {
       return 'Database provider mismatch: deployment is using a SQLite Prisma client while this project expects PostgreSQL. Redeploy latest commit and clear Vercel build cache.';
     }
 
-    if (message.includes('PrismaClientInitializationError')) {
+    if (message.includes('prismaclientinitializationerror')) {
       return 'Database initialization failed. Verify DATABASE_URL and run production migrations.';
     }
 
-    if (message.includes('Authentication failed')) {
+    if (message.includes('authentication failed')) {
       return 'Database authentication failed. Check database credentials in DATABASE_URL.';
     }
 
-    if (message.includes('Can\'t reach database server')) {
+    if (message.includes("can't reach database server") || message.includes('cant reach database server')) {
       return 'Cannot reach database server. Check host, port, and network access.';
     }
 
     return 'Database operation failed. Verify deployment environment and Prisma migrations.';
+  }
+
+  private getErrorText(err: any): string {
+    const parts = [
+      err?.name,
+      err?.message,
+      err?.cause?.message,
+      err?.meta?.cause,
+      err?.stack,
+    ]
+      .filter(Boolean)
+      .map((v: unknown) => String(v).toLowerCase());
+
+    return parts.join(' | ');
+  }
+
+  private logDbError(context: 'signup' | 'login', err: any) {
+    console.error(`[AuthService.${context}] Database error`, {
+      name: err?.name,
+      code: err?.code,
+      message: err?.message,
+      cause: err?.cause?.message,
+      meta: err?.meta,
+    });
   }
 
   /**
@@ -120,11 +147,12 @@ export class AuthService {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: (user as any).role || 'STAFF',
         },
       };
     } catch (error) {
       console.error('Signup error:', error);
+      this.logDbError('signup', error);
       this.markDbError(error);
       if (this.useMemory) {
         return this.signup(input);
@@ -144,7 +172,15 @@ export class AuthService {
       const valid = await this.comparePassword(input.password, user.password);
       if (!valid) return { success: false, error: 'Invalid email or password' };
 
-      return { success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+      return {
+        success: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: (user as any).role || 'STAFF',
+        },
+      };
     }
 
     try {
@@ -154,9 +190,18 @@ export class AuthService {
       const valid = await this.comparePassword(input.password, user.password);
       if (!valid) return { success: false, error: 'Invalid email or password' };
 
-      return { success: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } };
+      return {
+        success: true,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: (user as any).role || 'STAFF',
+        },
+      };
     } catch (error) {
       console.error('Login error:', error);
+      this.logDbError('login', error);
       this.markDbError(error);
       if (this.useMemory) return this.login(input);
       return { success: false, error: this.getDatabaseErrorMessage(error) };
@@ -166,7 +211,7 @@ export class AuthService {
   async getUserById(id: string) {
     const user = await this.userRepository.findById(id);
     if (!user) return null;
-    return { id: user.id, name: user.name, email: user.email, role: user.role };
+    return { id: user.id, name: user.name, email: user.email, role: (user as any).role || 'STAFF' };
   }
 }
 
