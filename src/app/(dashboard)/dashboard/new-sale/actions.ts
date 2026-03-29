@@ -61,6 +61,26 @@ interface CartItem {
   quantity: number;
 }
 
+function toUserFacingSaleError(err: unknown): Error {
+  const code = (err as any)?.code as string | undefined;
+  const table = ((err as any)?.meta?.table as string | undefined)?.toLowerCase() || '';
+
+  if (code === 'P2021' && (table.includes('sales') || table.includes('sale_items'))) {
+    return new Error('Sales database is not fully initialized yet. Please retry in a moment or contact support.');
+  }
+
+  if (code === 'P1001') {
+    return new Error('Database is temporarily unreachable. Please try again shortly.');
+  }
+
+  if (code === 'P1000') {
+    return new Error('Database credentials are invalid. Please contact support.');
+  }
+
+  const message = err instanceof Error ? err.message : String(err || 'Unknown error');
+  return new Error(message || 'Failed to record sale. Please try again.');
+}
+
 export async function getProducts() {
   'use server';
   const businessId = await getCurrentBusinessId();
@@ -76,7 +96,7 @@ export async function getProducts() {
     return products.map(p => ({ ...p, price: p.price.toString() }));
   } catch (err) {
     console.error('new-sale.getProducts: prisma failed', err);
-    throw err;
+    throw toUserFacingSaleError(err);
   }
 }
 
@@ -122,72 +142,77 @@ export async function recordSale(cartItems: CartItem[]) {
 
   const items = Array.from(normalized.values());
 
-  return prisma.$transaction(async (tx) => {
-    // Get current stock levels for all items in cart
-    const productIds = items.map(item => item.id);
-    const currentStock = await tx.product.findMany({
-      where: { id: { in: productIds }, businessId },
-      select: { id: true, quantity: true }
-    });
+  try {
+    return await prisma.$transaction(async (tx) => {
+      // Get current stock levels for all items in cart
+      const productIds = items.map(item => item.id);
+      const currentStock = await tx.product.findMany({
+        where: { id: { in: productIds }, businessId },
+        select: { id: true, quantity: true }
+      });
 
-    // Check if any item is out of stock
-    for (const item of items) {
-      const currentProduct = currentStock.find(p => p.id === item.id);
-      if (!currentProduct || currentProduct.quantity < item.quantity) {
-        const available = currentProduct?.quantity ?? 0;
-        throw new Error(
-          `Cannot complete sale: ${item.name} is out of stock or insufficient quantity available (available: ${available}).`
-        );
+      // Check if any item is out of stock
+      for (const item of items) {
+        const currentProduct = currentStock.find(p => p.id === item.id);
+        if (!currentProduct || currentProduct.quantity < item.quantity) {
+          const available = currentProduct?.quantity ?? 0;
+          throw new Error(
+            `Cannot complete sale: ${item.name} is out of stock or insufficient quantity available (available: ${available}).`
+          );
+        }
       }
-    }
 
-    // Create a new sale record
-    const sale = await tx.sale.create({
-      data: {
-        businessId,
-        totalAmount: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
-      },
-    });
-
-    // Create sale items and update product quantities
-    for (const item of items) {
-      await tx.saleItem.create({
+      // Create a new sale record
+      const sale = await tx.sale.create({
         data: {
-          saleId: sale.id,
-          productId: item.id,
-          quantity: item.quantity,
-          price: item.price,
+          businessId,
+          totalAmount: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
         },
       });
 
-      // Use conditional update to ensure we don't decrement below zero under concurrency.
-      const updated = await tx.product.updateMany({
-        where: { id: item.id, businessId, quantity: { gte: item.quantity } },
-        data: { quantity: { decrement: item.quantity } },
-      });
+      // Create sale items and update product quantities
+      for (const item of items) {
+        await tx.saleItem.create({
+          data: {
+            saleId: sale.id,
+            productId: item.id,
+            quantity: item.quantity,
+            price: item.price,
+          },
+        });
 
-      if (updated.count !== 1) {
-        const available = (currentStock.find(p => p.id === item.id)?.quantity ?? 0);
-        throw new Error(
-          `Cannot complete sale: ${item.name} is out of stock or insufficient quantity available (available: ${available}).`
-        );
+        // Use conditional update to ensure we don't decrement below zero under concurrency.
+        const updated = await tx.product.updateMany({
+          where: { id: item.id, businessId, quantity: { gte: item.quantity } },
+          data: { quantity: { decrement: item.quantity } },
+        });
+
+        if (updated.count !== 1) {
+          const available = (currentStock.find(p => p.id === item.id)?.quantity ?? 0);
+          throw new Error(
+            `Cannot complete sale: ${item.name} is out of stock or insufficient quantity available (available: ${available}).`
+          );
+        }
       }
-    }
 
-    // Return the created sale with line items + product names (no printing).
-    return tx.sale.findUnique({
-      where: { id: sale.id },
-      include: {
-        items: {
-          include: {
-            product: {
-              select: { id: true, name: true },
+      // Return the created sale with line items + product names (no printing).
+      return tx.sale.findUnique({
+        where: { id: sale.id },
+        include: {
+          items: {
+            include: {
+              product: {
+                select: { id: true, name: true },
+              },
             },
           },
         },
-      },
+      });
     });
-  });
+  } catch (err) {
+    console.error('new-sale.recordSale: prisma failed', err);
+    throw toUserFacingSaleError(err);
+  }
 }
 
 export { getCurrentBusinessId };

@@ -205,10 +205,22 @@ export async function deleteProduct(formData: FormData) {
     }
 
     // Remove dependent rows first so foreign key constraints do not block deletion.
-    await prisma.$transaction([
-      prisma.saleItem.deleteMany({ where: { productId: id } }),
-      prisma.product.delete({ where: { id } }),
-    ]);
+    // In partially migrated environments, sale_items may not exist yet.
+    try {
+      await prisma.$transaction([
+        prisma.saleItem.deleteMany({ where: { productId: id } }),
+        prisma.product.deleteMany({ where: { id, businessId } }),
+      ]);
+    } catch (txErr: any) {
+      if (txErr?.code === 'P2021') {
+        const fallback = await prisma.product.deleteMany({ where: { id, businessId } });
+        if (fallback.count !== 1) {
+          throw new Error('Product not found');
+        }
+      } else {
+        throw txErr;
+      }
+    }
   } catch (err) {
     console.error('products.deleteProduct: prisma failed', err);
     throw err;
