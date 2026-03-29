@@ -17,7 +17,7 @@ export class UserService {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: (user as any).role || 'STAFF',
       createdAt: user.createdAt,
     };
   }
@@ -31,7 +31,7 @@ export class UserService {
       id: user.id,
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: (user as any).role || 'STAFF',
       createdAt: user.createdAt,
     }));
   }
@@ -59,7 +59,7 @@ export class UserService {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: (user as any).role || 'STAFF',
         },
       };
     } catch (error) {

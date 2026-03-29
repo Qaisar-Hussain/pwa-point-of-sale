@@ -21,6 +21,7 @@ export class UserRepository {
         id: true,
         name: true,
         email: true,
+        createdAt: true,
       },
     });
   }
@@ -38,7 +39,15 @@ export class UserRepository {
   }
 
   async update(id: string, data: Partial<{ name: string; email: string; role: string }>) {
-    return prisma.user.update({ where: { id }, data });
+    return prisma.user.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
   }
 
   async delete(id: string) {
@@ -46,7 +55,14 @@ export class UserRepository {
   }
 
   async findAll() {
-    return prisma.user.findMany();
+    return prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+      },
+    });
   }
 }
 
